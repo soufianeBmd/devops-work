@@ -1,0 +1,38 @@
+version: '3'
+
+services:
+  frontend:
+    build:
+      context: ./frontend
+    volumes:
+      - ./frontend:/usr/share/nginx/html
+    ports:
+      - "80:80"
+    depends_on:
+      - svm-service
+      - vgg19-service
+    networks:
+      - internalNetwork
+  svm-service:
+    container_name: svm-service
+    build:
+      context: ./svm_service
+    volumes:
+      - ./data:/data
+      - ./svm_service:/svm_service
+    ports:
+      - "5002:5002"
+    networks:
+      - internalNetwork
+  vgg19-service:
+    build:
+      context: ./vgg19_service
+    depends_on:
+      - svm-service
+    volumes:
+      - ./data:/data
+
+networks:
+  internalNetwork:
+    driver: bridge
+

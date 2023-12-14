@@ -1,0 +1,126 @@
+pipeline {
+    agent any
+
+    environment {
+        FRONTEND_IMAGE = 'frontend-image'
+        BACKEND1_IMAGE = 'backend1-image'
+        BACKEND2_IMAGE = 'backend2-image'
+        FRONTEND_PORT = '8080'  // Replace with the actual port where the frontend service is running
+        BACKEND1_PORT = '5000'  // Replace with the actual port where the first backend service is running
+        BACKEND2_PORT = '5001'  // Replace with the actual port where the second backend service is running
+        DOCKER_REGISTRY = 'your-docker-registry'  // Replace with your Docker registry URL
+    }
+
+    stages {
+        stage('Build Frontend') {
+            steps {
+                script {
+                    docker.build(FRONTEND_IMAGE)
+                }
+            }
+        }
+
+        stage('Build Backend 1') {
+            steps {
+                script {
+                    docker.build(BACKEND1_IMAGE)
+                }
+            }
+        }
+
+        stage('Build Backend 2') {
+            steps {
+                script {
+                    docker.build(BACKEND2_IMAGE)
+                }
+            }
+        }
+
+        stage('Test Frontend') {
+            steps {
+                script {
+                    docker.image(FRONTEND_IMAGE).inside {
+                        def testFile = 'path/to/your/test/file.txt'
+                        def base64Value = sh(script: "cat $testFile | base64", returnStdout: true).trim()
+
+                    }
+                }
+            }
+        }
+
+        stage('Test svm backend') {
+            steps {
+                script {
+                    docker.image(BACKEND1_IMAGE).inside {
+                        def base64Value = 'your-base64-encoded-value'
+                        def decodedFile = 'path/to/your/decoded/file.txt'
+
+                        sh "echo '$base64Value' | base64 -d > $decodedFile"
+
+                        def response = sh(script: "curl -X POST -F 'file=@$decodedFile' http://localhost:$BACKEND1_PORT/predict", returnStatus: true)
+
+                        if (response == 0) {
+                            currentBuild.result = 'FAILURE'
+                            error('test failed.')
+                        } else {
+                          sh "echo test done"
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Test vgg') {
+            steps {
+                script {
+                    docker.image(BACKEND2_IMAGE).inside {
+                        def base64Value = 'your-base64-encoded-value'
+                        def decodedFile = 'path/to/your/decoded/file.txt'
+
+                        sh "echo '$base64Value' | base64 -d > $decodedFile"
+
+                        def response = sh(script: "curl -X POST -F 'file=@$decodedFile' http://localhost:$BACKEND2_PORT/predict", returnStatus: true)
+
+                        if (response == 0) {
+                            currentBuild.result = 'FAILURE'
+                            error('vgg test failed.')
+                        } else {
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Deploy Frontend') {
+            steps {
+                script {
+                    docker.withRegistry(DOCKER_REGISTRY, 'credentials-id') {
+                        docker.image(FRONTEND_IMAGE).push()
+                    }
+                }
+            }
+        }
+
+        stage('Deploy svm') {
+            steps {
+                script {
+                    docker.withRegistry(DOCKER_REGISTRY, 'credentials-id') {
+                        docker.image(BACKEND1_IMAGE).push()
+                    }
+                }
+            }
+        }
+
+        stage('Deploy vgg') {
+            steps {
+                script {
+                    docker.withRegistry(DOCKER_REGISTRY, 'credentials-id') {
+                        docker.image(BACKEND2_IMAGE).push()
+                    }
+                }
+            }
+        }
+
+
+    }
+}
